@@ -1,0 +1,104 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+ 
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id        String    @id @default(uuid())
+  name      String
+  email     String    @unique
+  password  String
+  role      Role      @default(USER)
+  
+  // Relation: Ek user ki multiple bookings
+  bookings  Booking[] 
+
+  isSuspended Boolean @default(false)
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+
+
+model Event {
+  id          String         @id @default(uuid())
+  name        String
+  artist      String
+  city        String
+  venue       String
+  date        DateTime
+  createdAt   DateTime       @default(now())
+  categories  SeatCategory[]
+  bookings    Booking[]
+  search_vector Unsupported("tsvector")?
+  @@index([search_vector],type:Gin)
+}
+
+model SeatCategory {
+  id       String  @id @default(uuid())
+  type     String  // "VIP", "Gold", "Silver"
+  price    Float   // har concert ki alag price ✅
+
+  eventId  String
+  event    Event   @relation(fields: [eventId], references: [id])
+
+  seats    Seat[]
+}
+
+model Seat {
+  id         String       @id @default(uuid())
+  seatNo     String       // "A1", "A2"
+  status     SeatStatus   @default(AVAILABLE)
+
+  categoryId String
+  category   SeatCategory @relation(fields: [categoryId], references: [id])
+
+  booking    Booking?
+}
+
+model Booking {
+  id        String        @id @default(uuid())
+  pricePaid Float         // snapshot — booking ke time ki price
+  status    BookingStatus @default(PENDING)
+
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  
+
+  seatId    String        @unique
+  seat      Seat          @relation(fields: [seatId], references: [id])
+
+  eventId   String
+  event     Event         @relation(fields: [eventId], references: [id])
+
+  createdAt DateTime      @default(now())
+}
+
+enum SeatStatus {
+  AVAILABLE
+  BOOKED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum Role {
+  USER
+  ADMIN
+}
